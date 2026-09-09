@@ -15,6 +15,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .ipynb_checkpoints/
+.python-version
 
 # Training outputs from `mlagents-learn` (checkpoints, tensorboard logs) —
 # these are large, regenerable, and machine/run-specific.
