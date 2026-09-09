@@ -1,0 +1,75 @@
+# ============================
+# macOS
+# ============================
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ============================
+# Python / ml-agents
+# ============================
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Training outputs from `mlagents-learn` (checkpoints, tensorboard logs) —
+# these are large, regenerable, and machine/run-specific.
+# If you want to commit a specific trained model or a curated results CSV,
+# force-add it explicitly: `git add -f results/my-run/summary.csv`
+results/
+*.onnx
+*.pt
+*.nn
+
+# ============================
+# Unity
+# ============================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+[Uu]serSettings/
+
+# Never ignore Assets/Packages/ProjectSettings meta files
+!*.meta
+
+# Unity3D generated crash reports
+sysinfo.txt
+
+# Builds
+*.apk
+*.unitypackage
+*.app
+
+# Crashlytics
+crashlytics-build.properties
+
+# ============================
+# IDE / editor
+# ============================
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ============================
+# OS
+# ============================
+Thumbs.db
