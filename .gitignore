@@ -7,6 +7,11 @@
 AppleScilicon.md
 
 # ============================
+# OS (other)
+# ============================
+Thumbs.db
+
+# ============================
 # Python / ml-agents
 # ============================
 venv/
@@ -14,9 +19,17 @@ venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.egg-info*
+*.eggs*
 .pytest_cache/
 .ipynb_checkpoints/
 .python-version
+.mypy_cache/
+.coverage
+coverage.xml
+/htmlcov/
+dist/
+build/
 
 # Training outputs from `mlagents-learn` (checkpoints, tensorboard logs) —
 # these are large, regenerable, and machine/run-specific.
@@ -27,6 +40,19 @@ results/
 *.pt
 *.nn
 
+# Output Artifacts (Legacy)
+/models
+/summaries
+
+# Training environments
+/envs
+
+# Environment logfile
+*Project.log
+
+# Ignore compiled protobuf files.
+*Grpc.Tools*
+
 # ============================
 # Unity
 # ============================
@@ -35,35 +61,56 @@ results/
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
+/Builds
 [Ll]ogs/
 [Mm]emoryCaptures/
 [Rr]ecordings/
 [Uu]serSettings/
+**/UserSettings/*
 
 # Never ignore Assets/Packages/ProjectSettings meta files
 !*.meta
 
 # Unity3D generated crash reports
 sysinfo.txt
+/com.unity.ml-agents/sysinfo.txt
 
 # Builds
 *.apk
 *.unitypackage
 *.app
+*.exe
+*.x86_64
+*.x86
 
 # Crashlytics
 crashlytics-build.properties
 
+# Custom settings asset
+*.settings.asset*
+
+# Plugins
+/com.unity.ml-agents/VideoRecorder*
+
+# Generated doc folders
+/docs/html
+
 # ============================
-# IDE / editor
+# Visual Studio / .NET
 # ============================
+/Project/.vs/
 .vs/
-.vscode/
-.idea/
+/com.unity.ml-agentsExportedObj/
+/com.unity.ml-agents.consulo/
+*.csproj
+*.unityproj
+*.sln
 *.suo
+*.tmp
 *.user
 *.userprefs
 *.pidb
+*.pidb.meta
 *.booproj
 *.svd
 *.pdb
@@ -72,6 +119,12 @@ crashlytics-build.properties
 *.VC.db
 
 # ============================
-# OS
+# IDE / editor
 # ============================
-Thumbs.db
+.vscode/
+.idea/
+.idea/misc.xml
+.idea/modules.xml
+*.iml
+*.cache
+*.gitignore.swp
