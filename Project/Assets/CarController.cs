@@ -7,13 +7,16 @@ public class CarController : MonoBehaviour
     [Header("Movement")]
     public float acceleration = 20f;
     public float maxSpeed = 15f;
-
-    [Header("Steering")]
+    public float brakeStrength = 30f;
     public float steeringStrength = 100f;
+
     // How much steering remains at maximum speed
     // 0.25 = 25% of normal steering at max speed
     [Range(0.05f, 1f)]
     public float highSpeedSteeringFactor = 0.25f;
+
+    [Header("Minimum Speed")]
+    public float minimumForwardSpeed = 0f;
 
     [Header("Grip")]
     public float sidewaysGrip = 5f;
@@ -21,6 +24,7 @@ public class CarController : MonoBehaviour
     private Rigidbody rb;
 
     private float throttleInput;
+    private float brakeInput;
     private float steeringInput;
 
     private void Awake()
@@ -31,14 +35,17 @@ public class CarController : MonoBehaviour
     private void FixedUpdate()
     {
         ApplyAcceleration();
+        ApplyBraking();
+        ApplyMinimumForwardSpeed();
         ApplySteering();
         ApplySidewaysGrip();
     }
 
-    public void SetInputs(float throttle, float steering)
+    public void SetInputs(float throttle, float steering, float brake = 0f)
     {
-        throttleInput = Mathf.Clamp(throttle, -1f, 1f);
+        throttleInput = Mathf.Clamp01(throttle);
         steeringInput = Mathf.Clamp(steering, -1f, 1f);
+        brakeInput = Mathf.Clamp01(brake);
     }
 
     private void ApplyAcceleration()
@@ -52,6 +59,41 @@ public class CarController : MonoBehaviour
                 ForceMode.Acceleration
             );
         }
+    }
+
+    private void ApplyMinimumForwardSpeed()
+    {
+        Vector3 localVelocity =
+            transform.InverseTransformDirection(rb.velocity);
+
+        if (localVelocity.z < minimumForwardSpeed)
+        {
+            localVelocity.z = minimumForwardSpeed;
+
+            rb.velocity =
+                transform.TransformDirection(localVelocity);
+        }
+    }
+
+    private void ApplyBraking()
+    {
+        if (brakeInput <= 0f)
+            return;
+
+        Vector3 localVelocity =
+            transform.InverseTransformDirection(rb.velocity);
+
+        localVelocity.z =
+            Mathf.MoveTowards(
+                localVelocity.z,
+                0f,
+                brakeStrength *
+                brakeInput *
+                Time.fixedDeltaTime
+            );
+
+        rb.velocity =
+            transform.TransformDirection(localVelocity);
     }
 
     private void ApplySteering()
