@@ -12,7 +12,17 @@ public class CarAgent : Agent
     public Rigidbody rb;
 
     [Header("Wall Sensors")]
-    public float wallRayDistance = 20f;
+
+    public const int MaxWallRayCount = 21;
+
+    public int wallRayCount = 9;
+
+    public float wallRayFov = 180f;
+
+    public float wallRaySideDistance = 12f;
+    public float wallRayCenterDistance = 30f;
+
+    public float wallRayCenterPower = 1.5f;
     public float wallRayHeight = 0.3f;
     public LayerMask wallLayerMask;
 
@@ -30,11 +40,11 @@ public class CarAgent : Agent
     public float progressRewardScale = 0.05f;
 
     [Header("Lap Time Reward")]
-    public float fastLapTime = 30f;
     public float slowLapTime = 90f;
+    public float targetLapTime = 42f;
 
-    public float minimumLapTimeBonus = 0.2f;
-    public float maximumLapTimeBonus = 1.5f;
+    public float maximumLapTimeBonus = 3f;
+    public float lapTimeBonusExponent = 2f;
 
     [Header("Episode Limits")]
     public float maxSecondsToReachStart = 60f;
@@ -217,38 +227,74 @@ public class CarAgent : Agent
     private void AddWallRayObservations(VectorSensor sensor)
     {
         Vector3 rayOrigin =
-            transform.position + Vector3.up * wallRayHeight;
+            transform.position +
+            Vector3.up * wallRayHeight;
 
-        float[] rayAngles =
-        {
-            0f,     
-            20f,    
-            -20f,   
-            45f,    
-            -45f, 
-            90f,    
-            -90f,   
-            180f
-        };
+        int activeRayCount =
+            Mathf.Clamp(
+                wallRayCount,
+                1,
+                MaxWallRayCount
+            );
 
-        foreach (float angle in rayAngles)
+        for (int i = 0; i < activeRayCount; i++)
         {
+            float fraction =
+                activeRayCount == 1
+                    ? 0.5f
+                    : (float)i / (activeRayCount - 1);
+
+            float angle =
+                Mathf.Lerp(
+                    -wallRayFov * 0.5f,
+                    wallRayFov * 0.5f,
+                    fraction
+                );
+
+            float centerAmount =
+                1f -
+                Mathf.Abs(
+                    angle /
+                    (wallRayFov * 0.5f)
+                );
+
+            centerAmount =
+                Mathf.Clamp01(centerAmount);
+
+            float shapedCenterAmount =
+                Mathf.Pow(
+                    centerAmount,
+                    wallRayCenterPower
+                );
+
+            float rayDistance =
+                Mathf.Lerp(
+                    wallRaySideDistance,
+                    wallRayCenterDistance,
+                    shapedCenterAmount
+                );
+
             Vector3 worldDirection =
-                Quaternion.AngleAxis(angle, transform.up) *
+                Quaternion.AngleAxis(
+                    angle,
+                    transform.up
+                ) *
                 transform.forward;
 
             float normalizedDistance = 1f;
 
-            if (Physics.Raycast(
-                rayOrigin,
-                worldDirection,
-                out RaycastHit hit,
-                wallRayDistance,
-                wallLayerMask
-            ))
+            if (
+                Physics.Raycast(
+                    rayOrigin,
+                    worldDirection,
+                    out RaycastHit hit,
+                    rayDistance,
+                    wallLayerMask
+                )
+            )
             {
                 normalizedDistance =
-                    hit.distance / wallRayDistance;
+                    hit.distance / rayDistance;
 
                 Debug.DrawRay(
                     rayOrigin,
@@ -260,12 +306,24 @@ public class CarAgent : Agent
             {
                 Debug.DrawRay(
                     rayOrigin,
-                    worldDirection * wallRayDistance,
+                    worldDirection * rayDistance,
                     Color.green
                 );
             }
 
-            sensor.AddObservation(normalizedDistance);
+            sensor.AddObservation(
+                normalizedDistance
+            );
+        }
+
+        // Fill unused observation slots.
+        for (
+            int i = activeRayCount;
+            i < MaxWallRayCount;
+            i++
+        )
+        {
+            sensor.AddObservation(1f);
         }
     }
 
@@ -396,15 +454,17 @@ public class CarAgent : Agent
         float normalized =
             Mathf.InverseLerp(
                 slowLapTime,
-                fastLapTime,
+                targetLapTime,
                 lapTime
             );
 
-        return Mathf.Lerp(
-            minimumLapTimeBonus,
-            maximumLapTimeBonus,
-            normalized
-        );
+        float shaped =
+            Mathf.Pow(
+                normalized,
+                lapTimeBonusExponent
+            );
+
+        return shaped * maximumLapTimeBonus;
     }
 
     private void OnLapCompleted(float lapTime)

@@ -22,9 +22,14 @@ behaviors:
         gamma: 0.99
         strength: 1.0
 
-    max_steps: 1000000
+    max_steps: 2000000
     time_horizon: 64
     summary_freq: 10000
 
 environment_parameters:
   checkpoint_count: 20
+  wall_ray_count: 11
+  wall_ray_fov: 180
+  wall_ray_side_distance: 12
+  wall_ray_center_distance: 30
+  wall_ray_center_power: 1.5
