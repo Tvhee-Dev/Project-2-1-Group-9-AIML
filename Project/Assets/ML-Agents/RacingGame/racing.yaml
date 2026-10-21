@@ -20,10 +20,10 @@ behaviors:
 
     reward_signals:
       extrinsic:
-        gamma: 0.995
+        gamma: 0.9995
 
-    max_steps: 2000000
-    time_horizon: 128
+    max_steps: 2500000
+    time_horizon: 256
     summary_freq: 10000
 
 environment_parameters:
@@ -74,5 +74,5 @@ environment_parameters:
   lap_time_reward_scale: 3
 
   # Decision requester
-  decision_period: 5
+  decision_period: 2
   take_actions_between_decisions: 1

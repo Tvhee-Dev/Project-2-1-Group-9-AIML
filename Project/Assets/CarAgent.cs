@@ -516,31 +516,35 @@ public class CarAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        float steering =
-            Mathf.Clamp(
-                actions.ContinuousActions[0],
-                -1f,
-                1f
-            );
+        ActionSegment<int> discrete =
+            actions.DiscreteActions;
 
-        float longitudinalAction =
-            Mathf.Clamp(
-                actions.ContinuousActions[1],
-                -1f,
-                1f
-            );
-
-        float throttle = 0f;
-        float brake = 0f;
-
-        if (longitudinalAction > 0f)
+        float steering;
+        switch (discrete[0])
         {
-            throttle = longitudinalAction;
+            case 0:
+                steering = -1f;
+                break;
+
+            case 2:
+                steering = 1f;
+                break;
+
+            default:
+                steering = 0f;
+                break;
         }
-        else if (longitudinalAction < 0f)
-        {
-            brake = -longitudinalAction;
-        }
+
+        float throttle =
+            discrete[1] == 1
+                ? 1f
+                : 0f;
+
+        float brake =
+            discrete[2] == 1
+                ? 1f
+                : 0f;
+
 
         carController.SetInputs(
             throttle,
@@ -695,12 +699,47 @@ public class CarAgent : Agent
         );
     }
 
-    public override void Heuristic(in ActionBuffers actionsOut)
+    public override void Heuristic(
+    in ActionBuffers actionsOut
+)
     {
-        ActionSegment<float> actions =
-            actionsOut.ContinuousActions;
+        ActionSegment<int> actions =
+            actionsOut.DiscreteActions;
 
-        actions[0] = Input.GetAxis("Horizontal");
-        actions[1] = Input.GetAxis("Vertical");
+        bool left =
+            Input.GetKey(KeyCode.A) ||
+            Input.GetKey(KeyCode.LeftArrow);
+
+        bool right =
+            Input.GetKey(KeyCode.D) ||
+            Input.GetKey(KeyCode.RightArrow);
+
+
+        if (left && !right)
+        {
+            actions[0] = 0; // left
+        }
+        else if (right && !left)
+        {
+            actions[0] = 2; // right
+        }
+        else
+        {
+            actions[0] = 1; // straight
+        }
+
+        bool throttle =
+            Input.GetKey(KeyCode.W) ||
+            Input.GetKey(KeyCode.UpArrow);
+
+        actions[1] =
+            throttle ? 1 : 0;
+
+        bool brake =
+            Input.GetKey(KeyCode.S) ||
+            Input.GetKey(KeyCode.DownArrow);
+
+        actions[2] =
+            brake ? 1 : 0;
     }
 }
