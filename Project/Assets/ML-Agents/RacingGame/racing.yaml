@@ -5,12 +5,13 @@ behaviors:
     hyperparameters:
       batch_size: 1024
       buffer_size: 20480
-      learning_rate: 0.0001
-      beta: 0.005
+      learning_rate: 0.0003
+      learning_rate_schedule: linear
+      beta: 0.003
+      beta_schedule: linear
       epsilon: 0.2
       lambd: 0.95
       num_epoch: 3
-      learning_rate_schedule: linear
 
     network_settings:
       normalize: true
@@ -19,17 +20,68 @@ behaviors:
 
     reward_signals:
       extrinsic:
-        gamma: 0.99
-        strength: 1.0
+        gamma: 0.995
 
     max_steps: 2000000
-    time_horizon: 64
+    time_horizon: 128
     summary_freq: 10000
 
 environment_parameters:
-  checkpoint_count: 20
-  wall_ray_count: 11
+  # Track
+  checkpoint_count: 51
+
+  # Car handling
+  max_speed: 45
+  acceleration: 20
+  brake_strength: 30
+  steering_strength: 75
+  high_speed_steering_factor: 0.25
+  minimum_forward_speed: 0
+  sideways_grip: 5
+
+  # Wall rays
+  wall_ray_count: 15
   wall_ray_fov: 180
   wall_ray_side_distance: 12
-  wall_ray_center_distance: 30
+  wall_ray_center_distance: 70
   wall_ray_center_power: 1.5
+  wall_ray_angle_power: 1.5
+  wall_ray_forward_offset: 1.2
+  wall_ray_height: 0.3
+
+  # Wall penalties
+  wall_penalty_per_second: 0.05
+  max_wall_contact_seconds: 0.75
+  prolonged_wall_penalty: -1
+  wall_impact_penalty: 0.1
+
+  # Progress rewards
+  checkpoint_reward_per_lap: 1
+  target_progress_reward_scale: 0.01
+  forward_progress_reward_per_second: 0.02
+
+  # Driving quality
+  time_penalty_per_second: 0.05
+  excessive_yaw_penalty_per_second: 0.01
+  slip_penalty_per_second: 0.005
+  allowed_yaw_rate: 2.2
+  allowed_slip_angle: 30
+  maximum_slip_angle: 75
+
+  # Lap-time reward
+  target_lap_time: 46
+  lap_time_reward_at_target: 6
+  lap_time_reward_scale: 3
+
+  # Episode limits
+  max_seconds_to_reach_start: 60
+  max_seconds_without_checkpoint: 45
+  max_seconds_to_finish: 45
+
+  # Observation scaling
+  distance_normalization: 50
+  angular_velocity_normalization: 5
+
+  # Decision Requester
+  decision_period: 1
+  take_actions_between_decisions: 1

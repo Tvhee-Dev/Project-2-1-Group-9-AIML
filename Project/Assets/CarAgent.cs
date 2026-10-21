@@ -2,6 +2,8 @@ using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
+using System.IO;
+using System.Globalization;
 
 public class CarAgent : Agent
 {
@@ -23,28 +25,43 @@ public class CarAgent : Agent
     public float wallRayCenterDistance = 30f;
 
     public float wallRayCenterPower = 1.5f;
+
+    [Range(1f, 3f)]
+    public float wallRayAnglePower = 1.5f;
+    public float wallRayForwardOffset = 1.2f;
+
     public float wallRayHeight = 0.3f;
     public LayerMask wallLayerMask;
 
     [Header("Wall Handling")]
     public float wallPenaltyPerSecond = 0.05f;
-    public float maxWallContactSeconds = 2f;
-    public float prolongedWallPenalty = -0.5f;
+    public float maxWallContactSeconds = 0.75f;
+    public float prolongedWallPenalty = -1f;
+    public float wallImpactPenalty = 0.10f;
 
     private float wallContactTime;
 
-    [Header("Episode Reset")]
-    public Transform spawnPoint;
-
     [Header("Progress Reward")]
-    public float progressRewardScale = 0.05f;
+    [Tooltip("Total checkpoint reward available over one completed lap.")]
+    public float checkpointRewardPerLap = 1f;
+    public float targetProgressRewardScale = 0.01f;
+    public float forwardProgressRewardPerSecond = 0.02f;
+
+    [Header("Driving Quality")]
+    public float timePenaltyPerSecond = 0.05f;
+    public float excessiveYawPenaltyPerSecond = 0.01f;
+    public float slipPenaltyPerSecond = 0.005f;
+    public float allowedYawRate = 2.2f;
+    public float allowedSlipAngle = 30f;
+    public float maximumSlipAngle = 75f;
 
     [Header("Lap Time Reward")]
-    public float slowLapTime = 90f;
-    public float targetLapTime = 42f;
+    public float targetLapTime = 46f;
+    public float lapTimeRewardAtTarget = 4f;
+    public float lapTimeRewardScale = 3f;
 
-    public float maximumLapTimeBonus = 3f;
-    public float lapTimeBonusExponent = 2f;
+    public float maximumLapTimeBonus = 4f;
+    public float lapTimeBonusExponent = 1.5f;
 
     [Header("Episode Limits")]
     public float maxSecondsToReachStart = 60f;
@@ -56,9 +73,25 @@ public class CarAgent : Agent
     private float previousDistanceToTarget;
     private Transform previousTarget;
 
+    [Header("Episode Reset")]
+    public Transform spawnPoint;
+
     [Header("Observation Scaling")]
     public float distanceNormalization = 50f;
     public float angularVelocityNormalization = 5f;
+
+    [Header("Action Debug")]
+    public float lastThrottle;
+    public float lastBrake;
+    public float lastSteering;
+
+    [Header("Split Logging")]
+    public bool writeCheckpointSplits = true;
+    public string driverLabel = "AI";
+
+    private string splitCsvPath;
+    private float lastSplitTime;
+    private int episodeNumber;
 
     protected override void Awake()
     {
@@ -78,27 +111,35 @@ public class CarAgent : Agent
         lapTracker.CheckpointPassed += OnCheckpointPassed;
         lapTracker.LapCompleted += OnLapCompleted;
         lapTracker.StartFinishCrossed += OnStartFinishCrossed;
+
+        splitCsvPath = Path.Combine(Application.persistentDataPath, "checkpoint_splits.csv");
+
+        if (writeCheckpointSplits && !File.Exists(splitCsvPath))
+        {
+            File.WriteAllText(
+                splitCsvPath,
+                "driver,episode,checkpoint,split_seconds,lap_seconds,speed\n"
+            );
+        }
+
+        Debug.Log($"Split CSV: {splitCsvPath}");
     }
 
     private void FixedUpdate()
     {
-        if (!lapTracker.LapStarted &&
-            !lapTracker.WaitingForTrainingStart)
+        if (!lapTracker.LapStarted)
         {
             return;
         }
 
-        timeSinceCheckpoint += Time.fixedDeltaTime;
+        float dt = Time.fixedDeltaTime;
 
+        timeSinceCheckpoint += dt;
 
         // Determine how much time the agent gets
         float allowedTime;
 
-        if (lapTracker.WaitingForTrainingStart)
-        {
-            allowedTime = maxSecondsToReachStart;
-        }
-        else if (
+        if (
             lapTracker.NextCheckpoint >=
             lapTracker.totalCheckpoints
         )
@@ -110,31 +151,77 @@ public class CarAgent : Agent
             allowedTime = maxSecondsWithoutCheckpoint;
         }
 
-
-        // Reset if it takes too long
+        // End the episode if progress takes too long
         if (timeSinceCheckpoint >= allowedTime)
         {
-            AddReward(-0.5f);
+            AddReward(-1f);
             EndEpisode();
             return;
         }
 
+        float maxSpeed =
+            Mathf.Max(carController.maxSpeed, 0.1f);
+
+        Vector3 localVelocity =
+            transform.InverseTransformDirection(
+                rb.velocity
+            );
+
+        float speedAmount =
+            Mathf.Clamp01(
+                rb.velocity.magnitude / maxSpeed
+            );
+
+        // Small incentive to finish sooner
+        AddReward(
+            -timePenaltyPerSecond * dt
+        );
+
+        // Penalize excessive rotation while moving
+        float excessiveYaw =
+            Mathf.InverseLerp(
+                allowedYawRate,
+                angularVelocityNormalization,
+                Mathf.Abs(rb.angularVelocity.y)
+            );
+
+        AddReward(
+            -excessiveYawPenaltyPerSecond *
+            excessiveYaw *
+            speedAmount *
+            dt
+        );
+
+        // Penalize severe sideways sliding
+        float slipAngle =
+            Mathf.Abs(
+                Mathf.Atan2(
+                    localVelocity.x,
+                    Mathf.Abs(localVelocity.z) + 0.1f
+                ) * Mathf.Rad2Deg
+            );
+
+        float excessiveSlip =
+            Mathf.InverseLerp(
+                allowedSlipAngle,
+                maximumSlipAngle,
+                slipAngle
+            );
+
+        AddReward(
+            -slipPenaltyPerSecond *
+            excessiveSlip *
+            speedAmount *
+            dt
+        );
 
         Transform target = GetCurrentTarget();
 
         if (target == null)
             return;
 
+        float currentDistance = Vector3.Distance(transform.position, target.position);
 
-        float currentDistance =
-            Vector3.Distance(
-                transform.position,
-                target.position
-            );
-
-
-        // Target changed
-        // Start - CP0, CP0 - CP1, etc.
         if (target != previousTarget)
         {
             previousTarget = target;
@@ -142,10 +229,20 @@ public class CarAgent : Agent
             return;
         }
 
+        float distanceProgress =
+            previousDistanceToTarget - currentDistance;
 
-        // Reward velocity toward current target
+        previousDistanceToTarget = currentDistance;
+
+        AddReward(
+            distanceProgress * targetProgressRewardScale
+        );
+
         Vector3 directionToTarget =
-            (target.position - transform.position).normalized;
+            (
+                target.position -
+                transform.position
+            ).normalized;
 
         float forwardProgress =
             Vector3.Dot(
@@ -153,29 +250,11 @@ public class CarAgent : Agent
                 directionToTarget
             );
 
+
         float normalizedProgress =
-            forwardProgress /
-            Mathf.Max(
-                carController.maxSpeed,
-                0.1f
-            );
+            forwardProgress / maxSpeed;
 
-        AddReward(
-            normalizedProgress * 0.001f
-        );
-
-
-        // Reward reduction in distance to target
-        float progress =
-            previousDistanceToTarget -
-            currentDistance;
-
-        AddReward(
-            progress * progressRewardScale
-        );
-
-        previousDistanceToTarget =
-            currentDistance;
+        AddReward(normalizedProgress * forwardProgressRewardPerSecond * dt);
     }
 
     private void OnDestroy()
@@ -201,33 +280,50 @@ public class CarAgent : Agent
 
         carController.SetInputs(0f, 0f, 0f);
 
+        lastThrottle = 0f;
+        lastBrake = 0f;
+        lastSteering = 0f;
+
         Physics.SyncTransforms();
 
         lapTracker.ResetForTrainingEpisode();
 
         previousTarget = GetCurrentTarget();
 
-        if (previousTarget != null)
-        {
-            previousDistanceToTarget =
-                Vector3.Distance(
-                    transform.position,
-                    previousTarget.position
-                );
-        }
-        else
-        {
-            previousDistanceToTarget = 0f;
-        }
+        previousDistanceToTarget = previousTarget != null
+            ? Vector3.Distance(transform.position, previousTarget.position)
+            : 0f;
 
         timeSinceCheckpoint = 0f;
         wallContactTime = 0f;
+        episodeNumber++;
+    }
+
+
+    private void WriteSplit(string checkpoint, float splitTime)
+    {
+        if (!writeCheckpointSplits)
+            return;
+
+        string line = string.Format(
+            CultureInfo.InvariantCulture,
+            "{0},{1},{2},{3:F3},{4:F3},{5:F3}\n",
+            driverLabel,
+            episodeNumber,
+            checkpoint,
+            splitTime,
+            lapTracker.GetCurrentLapTime(),
+            rb.velocity.magnitude
+        );
+
+        File.AppendAllText(splitCsvPath, line);
     }
 
     private void AddWallRayObservations(VectorSensor sensor)
     {
         Vector3 rayOrigin =
             transform.position +
+            transform.forward * wallRayForwardOffset +
             Vector3.up * wallRayHeight;
 
         int activeRayCount =
@@ -239,40 +335,26 @@ public class CarAgent : Agent
 
         for (int i = 0; i < activeRayCount; i++)
         {
-            float fraction =
-                activeRayCount == 1
-                    ? 0.5f
-                    : (float)i / (activeRayCount - 1);
+            float fraction = activeRayCount == 1 ? 0.5f : (float)i / (activeRayCount - 1);
 
-            float angle =
-                Mathf.Lerp(
-                    -wallRayFov * 0.5f,
-                    wallRayFov * 0.5f,
-                    fraction
-                );
+            float signedFraction = fraction * 2f - 1f;
 
-            float centerAmount =
-                1f -
-                Mathf.Abs(
-                    angle /
-                    (wallRayFov * 0.5f)
-                );
-
-            centerAmount =
-                Mathf.Clamp01(centerAmount);
-
-            float shapedCenterAmount =
+            float shapedFraction =
+                Mathf.Sign(signedFraction) *
                 Mathf.Pow(
-                    centerAmount,
-                    wallRayCenterPower
+                    Mathf.Abs(signedFraction),
+                    wallRayAnglePower
                 );
 
-            float rayDistance =
-                Mathf.Lerp(
-                    wallRaySideDistance,
-                    wallRayCenterDistance,
-                    shapedCenterAmount
-                );
+            float angle = shapedFraction * wallRayFov * 0.5f;
+
+            float centerAmount = 1f - Mathf.Abs(angle / (wallRayFov * 0.5f));
+
+            centerAmount = Mathf.Clamp01(centerAmount);
+
+            float shapedCenterAmount = Mathf.Pow(centerAmount, wallRayCenterPower);
+
+            float rayDistance = Mathf.Lerp(wallRaySideDistance, wallRayCenterDistance, shapedCenterAmount);
 
             Vector3 worldDirection =
                 Quaternion.AngleAxis(
@@ -283,18 +365,9 @@ public class CarAgent : Agent
 
             float normalizedDistance = 1f;
 
-            if (
-                Physics.Raycast(
-                    rayOrigin,
-                    worldDirection,
-                    out RaycastHit hit,
-                    rayDistance,
-                    wallLayerMask
-                )
-            )
+            if (Physics.Raycast(rayOrigin, worldDirection, out RaycastHit hit, rayDistance, wallLayerMask))
             {
-                normalizedDistance =
-                    hit.distance / rayDistance;
+                normalizedDistance = hit.distance / rayDistance;
 
                 Debug.DrawRay(
                     rayOrigin,
@@ -311,12 +384,10 @@ public class CarAgent : Agent
                 );
             }
 
-            sensor.AddObservation(
-                normalizedDistance
-            );
+            sensor.AddObservation(normalizedDistance);
         }
 
-        // Fill unused observation slots.
+        // Fill unused observation slots
         for (
             int i = activeRayCount;
             i < MaxWallRayCount;
@@ -325,6 +396,34 @@ public class CarAgent : Agent
         {
             sensor.AddObservation(1f);
         }
+    }
+
+    private void AddPointObservation(VectorSensor sensor, Transform point)
+    {
+        if (point == null)
+        {
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            return;
+        }
+
+        Vector3 localPoint = transform.InverseTransformPoint(point.position);
+
+        sensor.AddObservation(
+            Mathf.Clamp(localPoint.x / distanceNormalization, -1f, 1f)
+        );
+
+        sensor.AddObservation(
+            Mathf.Clamp(localPoint.z / distanceNormalization, -1f, 1f)
+        );
+
+        sensor.AddObservation(
+            Mathf.Clamp01(
+                new Vector2(localPoint.x, localPoint.z).magnitude /
+                distanceNormalization
+            )
+        );
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -358,35 +457,45 @@ public class CarAgent : Agent
 
         Transform target = GetCurrentTarget();
 
-        if (target != null)
+        Transform lookAheadTarget = GetLookAheadTarget();
+
+        if (target != null && lookAheadTarget != null)
         {
-            Vector3 direction =
-                target.position - transform.position;
+            Vector3 futureDirection =
+                lookAheadTarget.position -
+                target.position;
 
-            float distance =
-                direction.magnitude;
+            float futureDistance =
+                futureDirection.magnitude;
 
-            Vector3 localDirection =
+            Vector3 localFutureDirection =
                 transform.InverseTransformDirection(
-                    direction.normalized
+                    futureDirection.normalized
                 );
 
-            sensor.AddObservation(localDirection.x);
-            sensor.AddObservation(localDirection.z);
+            sensor.AddObservation(
+                localFutureDirection.x
+            );
+
+            sensor.AddObservation(
+                localFutureDirection.z
+            );
 
             sensor.AddObservation(
                 Mathf.Clamp01(
-                    distance / distanceNormalization
+                    futureDistance /
+                    distanceNormalization
                 )
             );
         }
         else
         {
-            // Always provide the same number of observations
             sensor.AddObservation(0f);
             sensor.AddObservation(0f);
             sensor.AddObservation(0f);
         }
+
+        AddPointObservation(sensor, target);
 
         // Track Progress
 
@@ -438,33 +547,38 @@ public class CarAgent : Agent
             steering,
             brake
         );
+
+        lastThrottle = throttle;
+        lastBrake = brake;
+        lastSteering = steering;
     }
 
     private void OnCheckpointPassed(int checkpointIndex)
     {
-        timeSinceCheckpoint = 0f;
-        if (lapTracker.totalCheckpoints <= 0)
-            return;
+        float now = Time.time;
 
-        AddReward(1f / lapTracker.totalCheckpoints);
+        WriteSplit(
+            checkpointIndex.ToString(),
+            now - lastSplitTime
+        );
+
+        lastSplitTime = now;
+        timeSinceCheckpoint = 0f;
+
+        AddReward(
+            checkpointRewardPerLap /
+            Mathf.Max(1, lapTracker.totalCheckpoints)
+        );
     }
 
     private float CalculateLapTimeBonus(float lapTime)
     {
-        float normalized =
-            Mathf.InverseLerp(
-                slowLapTime,
-                targetLapTime,
-                lapTime
-            );
+        float exponent = Mathf.Min(
+            (targetLapTime - lapTime) / lapTimeRewardScale,
+            3f
+        );
 
-        float shaped =
-            Mathf.Pow(
-                normalized,
-                lapTimeBonusExponent
-            );
-
-        return shaped * maximumLapTimeBonus;
+        return lapTimeRewardAtTarget * Mathf.Exp(exponent);
     }
 
     private void OnLapCompleted(float lapTime)
@@ -482,25 +596,39 @@ public class CarAgent : Agent
             $"Episode reward: {GetCumulativeReward():F3}"
         );
 
+        WriteSplit(
+    "Finish",
+    Time.time - lastSplitTime
+);
+
         EndEpisode();
     }
 
     private void OnStartFinishCrossed()
     {
-        if (lapTracker.WaitingForTrainingStart)
-        {
-            AddReward(0.05f);
-        }
-
+        lastSplitTime = Time.time;
         timeSinceCheckpoint = 0f;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("wall"))
-        {
-            wallContactTime = 0f;
-        }
+        if (!collision.gameObject.CompareTag("wall"))
+            return;
+
+        float maxSpeed =
+            Mathf.Max(carController.maxSpeed, 0.1f);
+
+        float impactAmount =
+            Mathf.Clamp01(
+                collision.relativeVelocity.magnitude /
+                maxSpeed
+            );
+
+        AddReward(
+            -wallImpactPenalty * impactAmount
+        );
+
+        wallContactTime = 0f;
     }
 
     private void OnCollisionStay(Collision collision)
@@ -510,12 +638,12 @@ public class CarAgent : Agent
 
         wallContactTime += Time.fixedDeltaTime;
 
-        // Continuous penalty while scraping/pushing against a wall.
+        // Continuous penalty while scraping/pushing against a wall
         AddReward(
             -wallPenaltyPerSecond * Time.fixedDeltaTime
         );
 
-        // The car is clearly stuck.
+        // The car is clearly stuck
         if (wallContactTime >= maxWallContactSeconds)
         {
             AddReward(prolongedWallPenalty);
@@ -541,6 +669,29 @@ public class CarAgent : Agent
 
         return trackManager.GetNextTarget(
             lapTracker.NextCheckpoint
+        );
+    }
+
+    private Transform GetLookAheadTarget()
+    {
+        if (lapTracker.WaitingForTrainingStart)
+        {
+            return trackManager.GetNextTarget(0);
+        }
+
+        int lookAheadIndex =
+            lapTracker.NextCheckpoint + 1;
+
+        if (
+            lookAheadIndex >=
+            lapTracker.totalCheckpoints
+        )
+        {
+            return trackManager.startFinishLine;
+        }
+
+        return trackManager.GetNextTarget(
+            lookAheadIndex
         );
     }
 
