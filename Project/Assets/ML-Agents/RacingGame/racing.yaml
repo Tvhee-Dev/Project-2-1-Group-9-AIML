@@ -47,7 +47,7 @@ environment_parameters:
   wall_ray_center_power: 1.5
   wall_ray_angle_power: 1.5
   wall_ray_forward_offset: 1.2
-  wall_ray_height: 0.3
+  wall_ray_height: 0
 
   # Wall penalties
   wall_penalty_per_second: 0.05
@@ -73,15 +73,6 @@ environment_parameters:
   lap_time_reward_at_target: 6
   lap_time_reward_scale: 3
 
-  # Episode limits
-  max_seconds_to_reach_start: 60
-  max_seconds_without_checkpoint: 45
-  max_seconds_to_finish: 45
-
-  # Observation scaling
-  distance_normalization: 50
-  angular_velocity_normalization: 5
-
-  # Decision Requester
-  decision_period: 1
+  # Decision requester
+  decision_period: 5
   take_actions_between_decisions: 1
