@@ -49,7 +49,7 @@ public class CarAgent : Agent
 
     [Header("Pace Reward")]
     public float paceRewardPerLap = 4f;
-    public float paceToleranceSeconds = 8f;
+    public float paceToleranceSeconds = 10f;
 
     [Header("Driving Quality")]
     public float timePenaltyPerSecond = 0.05f;
@@ -573,8 +573,7 @@ public class CarAgent : Agent
         lastSplitTime = now;
         timeSinceCheckpoint = 0f;
 
-        int checkpointCount =
-            Mathf.Max(1, lapTracker.totalCheckpoints);
+        int checkpointCount = Mathf.Max(1, lapTracker.totalCheckpoints);
 
         AddReward(
             checkpointRewardPerLap /
@@ -585,24 +584,16 @@ public class CarAgent : Agent
             (checkpointIndex + 1f) /
             (lapTracker.totalCheckpoints + 1f);
 
-        float targetTimeAtCheckpoint =
-            targetLapTime * progressFraction;
+        float targetTimeAtCheckpoint = targetLapTime * progressFraction;
 
-        float actualTime =
-            lapTracker.GetCurrentLapTime();
+        float actualTime = lapTracker.GetCurrentLapTime();
 
-        float paceDifference =
-            targetTimeAtCheckpoint - actualTime;
+        float paceDifference = targetTimeAtCheckpoint - actualTime;
 
-        float normalizedPace =
-            Mathf.Clamp(
-                paceDifference / paceToleranceSeconds,
-                -1f,
-                1f
-            );
+        float paceScore = Mathf.Clamp01(1f + paceDifference / paceToleranceSeconds);
 
         AddReward(
-            normalizedPace *
+            paceScore *
             paceRewardPerLap /
             checkpointCount
         );
