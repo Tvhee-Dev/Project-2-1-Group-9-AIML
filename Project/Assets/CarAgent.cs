@@ -47,6 +47,10 @@ public class CarAgent : Agent
     public float targetProgressRewardScale = 0.01f;
     public float forwardProgressRewardPerSecond = 0.02f;
 
+    [Header("Pace Reward")]
+    public float paceRewardPerLap = 4f;
+    public float paceToleranceSeconds = 8f;
+
     [Header("Driving Quality")]
     public float timePenaltyPerSecond = 0.05f;
     public float excessiveYawPenaltyPerSecond = 0.01f;
@@ -569,9 +573,38 @@ public class CarAgent : Agent
         lastSplitTime = now;
         timeSinceCheckpoint = 0f;
 
+        int checkpointCount =
+            Mathf.Max(1, lapTracker.totalCheckpoints);
+
         AddReward(
             checkpointRewardPerLap /
-            Mathf.Max(1, lapTracker.totalCheckpoints)
+            checkpointCount
+        );
+
+        float progressFraction =
+            (checkpointIndex + 1f) /
+            (lapTracker.totalCheckpoints + 1f);
+
+        float targetTimeAtCheckpoint =
+            targetLapTime * progressFraction;
+
+        float actualTime =
+            lapTracker.GetCurrentLapTime();
+
+        float paceDifference =
+            targetTimeAtCheckpoint - actualTime;
+
+        float normalizedPace =
+            Mathf.Clamp(
+                paceDifference / paceToleranceSeconds,
+                -1f,
+                1f
+            );
+
+        AddReward(
+            normalizedPace *
+            paceRewardPerLap /
+            checkpointCount
         );
     }
 
