@@ -12,7 +12,7 @@ public class TrackCheckpoint : MonoBehaviour
             return;
 
         LapTracker lapTracker =
-            carRigidbody.GetComponent<LapTracker>();
+            carRigidbody.GetComponentInParent<LapTracker>();
 
         if (lapTracker == null)
             return;

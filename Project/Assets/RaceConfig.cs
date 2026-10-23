@@ -4,11 +4,10 @@ using Unity.MLAgents;
 public class RaceConfig : MonoBehaviour
 {
     [Header("References")]
-    public CarController carController;
-    public CarAgent carAgent;
     public TrackManager trackManager;
-    public LapTracker lapTracker;
-    public DecisionRequester decisionRequester;
+
+    [Tooltip("Leave empty to automatically find all CarAgents below this TrainingArea.")]
+    public CarAgent[] carAgents;
 
     [Header("Default Track Settings")]
     public int defaultCheckpointCount = 51;
@@ -52,7 +51,7 @@ public class RaceConfig : MonoBehaviour
     public float defaultMaximumSlipAngle = 75f;
 
     [Header("Default Lap Time Reward Settings")]
-    public float defaultTargetLapTime = 46f;
+    public float defaultTargetLapTime = 52.02f;
     public float defaultLapTimeRewardAtTarget = 6f;
     public float defaultLapTimeRewardScale = 3f;
 
@@ -66,7 +65,7 @@ public class RaceConfig : MonoBehaviour
     public float defaultAngularVelocityNormalization = 5f;
 
     [Header("Default Decision Settings")]
-    [Min(1)] public int defaultDecisionPeriod = 1;
+    [Min(1)] public int defaultDecisionPeriod = 2;
     public bool defaultTakeActionsBetweenDecisions = true;
 
     private void Start()
@@ -76,6 +75,24 @@ public class RaceConfig : MonoBehaviour
 
     public void ApplyConfiguration()
     {
+        if (trackManager == null)
+            trackManager = GetComponentInChildren<TrackManager>(true);
+
+        if (trackManager == null)
+        {
+            Debug.LogError("RaceConfig: No TrackManager found.");
+            return;
+        }
+
+        if (carAgents == null || carAgents.Length == 0)
+            carAgents = GetComponentsInChildren<CarAgent>(true);
+
+        if (carAgents == null || carAgents.Length == 0)
+        {
+            Debug.LogError("RaceConfig: No CarAgents found.");
+            return;
+        }
+
         var parameters = Academy.Instance.EnvironmentParameters;
 
         int checkpointCount = GetInt(parameters, "checkpoint_count", defaultCheckpointCount);
@@ -109,7 +126,9 @@ public class RaceConfig : MonoBehaviour
         float wallRayForwardOffset = GetFloat(
             parameters, "wall_ray_forward_offset", defaultWallRayForwardOffset
         );
-        float wallRayHeight = GetFloat(parameters, "wall_ray_height", defaultWallRayHeight);
+        float wallRayHeight = GetFloat(
+            parameters, "wall_ray_height", defaultWallRayHeight
+        );
 
         float wallPenaltyPerSecond = GetFloat(
             parameters, "wall_penalty_per_second", defaultWallPenaltyPerSecond
@@ -197,7 +216,9 @@ public class RaceConfig : MonoBehaviour
             defaultTakeActionsBetweenDecisions ? 1f : 0f
         ) >= 0.5f;
 
+        // Validation
         checkpointCount = Mathf.Clamp(checkpointCount, 1, 100);
+
         maxSpeed = Mathf.Max(1f, maxSpeed);
         acceleration = Mathf.Max(0.1f, acceleration);
         brakeStrength = Mathf.Max(0.1f, brakeStrength);
@@ -218,79 +239,133 @@ public class RaceConfig : MonoBehaviour
         maxWallContactSeconds = Mathf.Max(0.05f, maxWallContactSeconds);
         prolongedWallPenalty = Mathf.Min(0f, prolongedWallPenalty);
         wallImpactPenalty = Mathf.Max(0f, wallImpactPenalty);
+
         checkpointRewardPerLap = Mathf.Max(0f, checkpointRewardPerLap);
         targetProgressRewardScale = Mathf.Max(0f, targetProgressRewardScale);
         forwardProgressRewardPerSecond = Mathf.Max(0f, forwardProgressRewardPerSecond);
+
         timePenaltyPerSecond = Mathf.Max(0f, timePenaltyPerSecond);
         excessiveYawPenaltyPerSecond = Mathf.Max(0f, excessiveYawPenaltyPerSecond);
         slipPenaltyPerSecond = Mathf.Max(0f, slipPenaltyPerSecond);
         allowedYawRate = Mathf.Max(0f, allowedYawRate);
         allowedSlipAngle = Mathf.Max(0f, allowedSlipAngle);
         maximumSlipAngle = Mathf.Max(allowedSlipAngle, maximumSlipAngle);
+
         targetLapTime = Mathf.Max(0.1f, targetLapTime);
         lapTimeRewardAtTarget = Mathf.Max(0f, lapTimeRewardAtTarget);
         lapTimeRewardScale = Mathf.Max(0.01f, lapTimeRewardScale);
+
         maxSecondsToReachStart = Mathf.Max(0.1f, maxSecondsToReachStart);
         maxSecondsWithoutCheckpoint = Mathf.Max(0.1f, maxSecondsWithoutCheckpoint);
         maxSecondsToFinish = Mathf.Max(0.1f, maxSecondsToFinish);
+
         distanceNormalization = Mathf.Max(0.1f, distanceNormalization);
         angularVelocityNormalization = Mathf.Max(0.1f, angularVelocityNormalization);
         decisionPeriod = Mathf.Clamp(decisionPeriod, 1, 20);
 
-        carController.maxSpeed = maxSpeed;
-        carController.acceleration = acceleration;
-        carController.brakeStrength = brakeStrength;
-        carController.steeringStrength = steeringStrength;
-        carController.highSpeedSteeringFactor = highSpeedSteeringFactor;
-        carController.minimumForwardSpeed = minimumForwardSpeed;
-        carController.sidewaysGrip = sidewaysGrip;
+        // Generate the shared track only once.
+        trackManager.GenerateCheckpoints(checkpointCount);
 
-        carAgent.wallRayCount = wallRayCount;
-        carAgent.wallRayFov = wallRayFov;
-        carAgent.wallRaySideDistance = wallRaySideDistance;
-        carAgent.wallRayCenterDistance = wallRayCenterDistance;
-        carAgent.wallRayCenterPower = wallRayCenterPower;
-        carAgent.wallRayAnglePower = wallRayAnglePower;
-        carAgent.wallRayForwardOffset = wallRayForwardOffset;
-        carAgent.wallRayHeight = wallRayHeight;
-        carAgent.wallPenaltyPerSecond = wallPenaltyPerSecond;
-        carAgent.maxWallContactSeconds = maxWallContactSeconds;
-        carAgent.prolongedWallPenalty = prolongedWallPenalty;
-        carAgent.wallImpactPenalty = wallImpactPenalty;
-        carAgent.checkpointRewardPerLap = checkpointRewardPerLap;
-        carAgent.targetProgressRewardScale = targetProgressRewardScale;
-        carAgent.forwardProgressRewardPerSecond = forwardProgressRewardPerSecond;
-        carAgent.timePenaltyPerSecond = timePenaltyPerSecond;
-        carAgent.excessiveYawPenaltyPerSecond = excessiveYawPenaltyPerSecond;
-        carAgent.slipPenaltyPerSecond = slipPenaltyPerSecond;
-        carAgent.allowedYawRate = allowedYawRate;
-        carAgent.allowedSlipAngle = allowedSlipAngle;
-        carAgent.maximumSlipAngle = maximumSlipAngle;
-        carAgent.targetLapTime = targetLapTime;
-        carAgent.lapTimeRewardAtTarget = lapTimeRewardAtTarget;
-        carAgent.lapTimeRewardScale = lapTimeRewardScale;
-        carAgent.maxSecondsToReachStart = maxSecondsToReachStart;
-        carAgent.maxSecondsWithoutCheckpoint = maxSecondsWithoutCheckpoint;
-        carAgent.maxSecondsToFinish = maxSecondsToFinish;
-        carAgent.distanceNormalization = distanceNormalization;
-        carAgent.angularVelocityNormalization = angularVelocityNormalization;
+        int configuredCars = 0;
 
-        if (decisionRequester != null)
+        foreach (CarAgent carAgent in carAgents)
         {
-            decisionRequester.DecisionPeriod = decisionPeriod;
-            decisionRequester.TakeActionsBetweenDecisions = takeActionsBetweenDecisions;
+            if (carAgent == null)
+                continue;
+
+            CarController carController = carAgent.GetComponent<CarController>();
+            LapTracker lapTracker = carAgent.GetComponent<LapTracker>();
+            DecisionRequester decisionRequester = carAgent.GetComponent<DecisionRequester>();
+            Rigidbody rb = carAgent.GetComponent<Rigidbody>();
+
+            if (carController == null || lapTracker == null || rb == null)
+            {
+                Debug.LogError(
+                    $"RaceConfig: {carAgent.name} is missing a " +
+                    "CarController, LapTracker or Rigidbody."
+                );
+                continue;
+            }
+
+            // Connect references
+            carAgent.carController = carController;
+            carAgent.lapTracker = lapTracker;
+            carAgent.rb = rb;
+            carAgent.trackManager = trackManager;
+            carAgent.spawnPoint = trackManager.spawnPoint;
+
+            // Car
+            carController.maxSpeed = maxSpeed;
+            carController.acceleration = acceleration;
+            carController.brakeStrength = brakeStrength;
+            carController.steeringStrength = steeringStrength;
+            carController.highSpeedSteeringFactor = highSpeedSteeringFactor;
+            carController.minimumForwardSpeed = minimumForwardSpeed;
+            carController.sidewaysGrip = sidewaysGrip;
+
+            // Wall sensors
+            carAgent.wallRayCount = wallRayCount;
+            carAgent.wallRayFov = wallRayFov;
+            carAgent.wallRaySideDistance = wallRaySideDistance;
+            carAgent.wallRayCenterDistance = wallRayCenterDistance;
+            carAgent.wallRayCenterPower = wallRayCenterPower;
+            carAgent.wallRayAnglePower = wallRayAnglePower;
+            carAgent.wallRayForwardOffset = wallRayForwardOffset;
+            carAgent.wallRayHeight = wallRayHeight;
+
+            // Wall rewards
+            carAgent.wallPenaltyPerSecond = wallPenaltyPerSecond;
+            carAgent.maxWallContactSeconds = maxWallContactSeconds;
+            carAgent.prolongedWallPenalty = prolongedWallPenalty;
+            carAgent.wallImpactPenalty = wallImpactPenalty;
+
+            // Progress rewards
+            carAgent.checkpointRewardPerLap = checkpointRewardPerLap;
+            carAgent.targetProgressRewardScale = targetProgressRewardScale;
+            carAgent.forwardProgressRewardPerSecond = forwardProgressRewardPerSecond;
+
+            // Driving quality
+            carAgent.timePenaltyPerSecond = timePenaltyPerSecond;
+            carAgent.excessiveYawPenaltyPerSecond = excessiveYawPenaltyPerSecond;
+            carAgent.slipPenaltyPerSecond = slipPenaltyPerSecond;
+            carAgent.allowedYawRate = allowedYawRate;
+            carAgent.allowedSlipAngle = allowedSlipAngle;
+            carAgent.maximumSlipAngle = maximumSlipAngle;
+
+            // Lap time reward
+            carAgent.targetLapTime = targetLapTime;
+            carAgent.lapTimeRewardAtTarget = lapTimeRewardAtTarget;
+            carAgent.lapTimeRewardScale = lapTimeRewardScale;
+
+            // Episode limits
+            carAgent.maxSecondsToReachStart = maxSecondsToReachStart;
+            carAgent.maxSecondsWithoutCheckpoint = maxSecondsWithoutCheckpoint;
+            carAgent.maxSecondsToFinish = maxSecondsToFinish;
+
+            // Observations
+            carAgent.distanceNormalization = distanceNormalization;
+            carAgent.angularVelocityNormalization = angularVelocityNormalization;
+
+            // Decisions
+            if (decisionRequester != null)
+            {
+                decisionRequester.DecisionPeriod = decisionPeriod;
+                decisionRequester.TakeActionsBetweenDecisions =
+                    takeActionsBetweenDecisions;
+            }
+
+            // Each car has independent lap progress.
+            lapTracker.SetTotalCheckpoints(checkpointCount);
+
+            configuredCars++;
         }
 
-        trackManager.GenerateCheckpoints(checkpointCount);
-        lapTracker.SetTotalCheckpoints(checkpointCount);
-
         Debug.Log(
-            "Race configuration: " +
+            $"Race configuration: Cars={configuredCars}, " +
             $"Checkpoints={checkpointCount}, " +
             $"MaxSpeed={maxSpeed}, " +
             $"Brake={brakeStrength}, " +
             $"Steering={steeringStrength}, " +
-            $"HighSpeedSteering={highSpeedSteeringFactor}, " +
             $"Grip={sidewaysGrip}, " +
             $"Rays={wallRayCount}, " +
             $"CenterRayDistance={wallRayCenterDistance}, " +
@@ -316,6 +391,8 @@ public class RaceConfig : MonoBehaviour
         int defaultValue
     )
     {
-        return Mathf.RoundToInt(parameters.GetWithDefault(name, defaultValue));
+        return Mathf.RoundToInt(
+            parameters.GetWithDefault(name, defaultValue)
+        );
     }
 }

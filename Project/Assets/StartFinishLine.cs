@@ -4,12 +4,18 @@ public class StartFinishLine : MonoBehaviour
 {
     private void OnTriggerEnter(Collider other)
     {
-        LapTracker lapTracker =
-            other.GetComponentInParent<LapTracker>();
+        Rigidbody carRigidbody =
+            other.attachedRigidbody;
 
-        if (lapTracker != null)
-        {
-            lapTracker.CrossStartFinish();
-        }
+        if (carRigidbody == null)
+            return;
+
+        LapTracker lapTracker =
+            carRigidbody.GetComponentInParent<LapTracker>();
+
+        if (lapTracker == null)
+            return;
+
+        lapTracker.CrossStartFinish();
     }
 }
