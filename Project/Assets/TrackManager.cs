@@ -23,6 +23,7 @@ public class TrackManager : MonoBehaviour
     [Header("Checkpoint generation")]
     public GameObject checkpointPrefab;
     public Transform checkpointParent;
+    public string checkpointLayerName = "RaceEnv";
 
     [Tooltip("Vertical offset from the spline")]
     public float checkpointHeightOffset = 0f;
@@ -85,7 +86,7 @@ public class TrackManager : MonoBehaviour
 
 
         // Find where the manually positioned Start/Finish line
-        // lies on the spline.
+        // lies on the spline
         Vector3 localStartPosition =
             trackSpline.transform.InverseTransformPoint(
                 startFinishLine.position
@@ -184,7 +185,11 @@ public class TrackManager : MonoBehaviour
                     checkpointParent
                 );
 
-
+            int checkpointLayer = LayerMask.NameToLayer(checkpointLayerName);
+            if (checkpointLayer != -1)
+            {
+                checkpoint.layer = checkpointLayer;
+            }
             checkpoint.name =
                 $"Checkpoint_{i}";
 
