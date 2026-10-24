@@ -131,7 +131,7 @@ public class CarAgent : Agent
 
     private void FixedUpdate()
     {
-        if (!lapTracker.LapStarted)
+        if (!lapTracker.LapStarted && !lapTracker.WaitingForTrainingStart)
         {
             return;
         }
@@ -143,10 +143,11 @@ public class CarAgent : Agent
         // Determine how much time the agent gets
         float allowedTime;
 
-        if (
-            lapTracker.NextCheckpoint >=
-            lapTracker.totalCheckpoints
-        )
+        if (lapTracker.WaitingForTrainingStart)
+        {
+            allowedTime = maxSecondsToReachStart;
+        }
+        else if (lapTracker.NextCheckpoint >= lapTracker.totalCheckpoints)
         {
             allowedTime = maxSecondsToFinish;
         }
