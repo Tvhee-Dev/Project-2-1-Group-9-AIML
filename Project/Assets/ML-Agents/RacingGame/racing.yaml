@@ -69,7 +69,7 @@ environment_parameters:
   maximum_slip_angle: 75
 
   # Lap-time reward
-  target_lap_time: 46
+  target_lap_time: 45
   lap_time_reward_at_target: 6
   lap_time_reward_scale: 3
 

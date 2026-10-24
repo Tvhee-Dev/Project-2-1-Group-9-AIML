@@ -131,23 +131,26 @@ public class CarAgent : Agent
 
     private void FixedUpdate()
     {
-        if (!lapTracker.LapStarted && !lapTracker.WaitingForTrainingStart)
-        {
+        bool waitingForStart =
+            lapTracker.WaitingForTrainingStart;
+
+        if (!waitingForStart && !lapTracker.LapStarted)
             return;
-        }
 
         float dt = Time.fixedDeltaTime;
 
         timeSinceCheckpoint += dt;
 
-        // Determine how much time the agent gets
         float allowedTime;
 
-        if (lapTracker.WaitingForTrainingStart)
+        if (waitingForStart)
         {
             allowedTime = maxSecondsToReachStart;
         }
-        else if (lapTracker.NextCheckpoint >= lapTracker.totalCheckpoints)
+        else if (
+            lapTracker.NextCheckpoint >=
+            lapTracker.totalCheckpoints
+        )
         {
             allowedTime = maxSecondsToFinish;
         }
@@ -156,7 +159,6 @@ public class CarAgent : Agent
             allowedTime = maxSecondsWithoutCheckpoint;
         }
 
-        // End the episode if progress takes too long
         if (timeSinceCheckpoint >= allowedTime)
         {
             AddReward(-1f);
@@ -177,55 +179,63 @@ public class CarAgent : Agent
                 rb.velocity.magnitude / maxSpeed
             );
 
-        // Small incentive to finish sooner
-        AddReward(
-            -timePenaltyPerSecond * dt
-        );
-
-        // Penalize excessive rotation while moving
-        float excessiveYaw =
-            Mathf.InverseLerp(
-                allowedYawRate,
-                angularVelocityNormalization,
-                Mathf.Abs(rb.angularVelocity.y)
+        if (!waitingForStart)
+        {
+            AddReward(
+                -timePenaltyPerSecond * dt
             );
 
-        AddReward(
-            -excessiveYawPenaltyPerSecond *
-            excessiveYaw *
-            speedAmount *
-            dt
-        );
+            float excessiveYaw =
+                Mathf.InverseLerp(
+                    allowedYawRate,
+                    angularVelocityNormalization,
+                    Mathf.Abs(rb.angularVelocity.y)
+                );
 
-        // Penalize severe sideways sliding
-        float slipAngle =
-            Mathf.Abs(
-                Mathf.Atan2(
-                    localVelocity.x,
-                    Mathf.Abs(localVelocity.z) + 0.1f
-                ) * Mathf.Rad2Deg
+            AddReward(
+                -excessiveYawPenaltyPerSecond *
+                excessiveYaw *
+                speedAmount *
+                dt
             );
 
-        float excessiveSlip =
-            Mathf.InverseLerp(
-                allowedSlipAngle,
-                maximumSlipAngle,
-                slipAngle
-            );
+            float slipAngle =
+                Mathf.Abs(
+                    Mathf.Atan2(
+                        localVelocity.x,
+                        Mathf.Abs(localVelocity.z) + 0.1f
+                    ) * Mathf.Rad2Deg
+                );
 
-        AddReward(
-            -slipPenaltyPerSecond *
-            excessiveSlip *
-            speedAmount *
-            dt
-        );
+            float excessiveSlip =
+                Mathf.InverseLerp(
+                    allowedSlipAngle,
+                    maximumSlipAngle,
+                    slipAngle
+                );
+
+            AddReward(
+                -slipPenaltyPerSecond *
+                excessiveSlip *
+                speedAmount *
+                dt
+            );
+        }
+
+
+        // Keep the progress shaping active BOTH before
+        // and after crossing Start/Finish.
 
         Transform target = GetCurrentTarget();
 
         if (target == null)
             return;
 
-        float currentDistance = Vector3.Distance(transform.position, target.position);
+        float currentDistance =
+            Vector3.Distance(
+                transform.position,
+                target.position
+            );
 
         if (target != previousTarget)
         {
@@ -235,12 +245,15 @@ public class CarAgent : Agent
         }
 
         float distanceProgress =
-            previousDistanceToTarget - currentDistance;
+            previousDistanceToTarget -
+            currentDistance;
 
-        previousDistanceToTarget = currentDistance;
+        previousDistanceToTarget =
+            currentDistance;
 
         AddReward(
-            distanceProgress * targetProgressRewardScale
+            distanceProgress *
+            targetProgressRewardScale
         );
 
         Vector3 directionToTarget =
@@ -255,11 +268,14 @@ public class CarAgent : Agent
                 directionToTarget
             );
 
-
         float normalizedProgress =
             forwardProgress / maxSpeed;
 
-        AddReward(normalizedProgress * forwardProgressRewardPerSecond * dt);
+        AddReward(
+            normalizedProgress *
+            forwardProgressRewardPerSecond *
+            dt
+        );
     }
 
     private void OnDestroy()

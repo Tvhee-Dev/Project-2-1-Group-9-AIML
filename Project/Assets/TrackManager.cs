@@ -15,7 +15,7 @@ public class TrackManager : MonoBehaviour
     public Transform spawnPoint;
 
     [Tooltip("Distance behind the Start/Finish line.")]
-    public float spawnDistanceBehindStart = 100f;
+    public float spawnDistanceBehindStart = 70f;
 
     [Tooltip("Vertical offset for the spawn position.")]
     public float spawnHeightOffset = 0.5f;

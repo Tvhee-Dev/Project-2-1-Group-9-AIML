@@ -18,14 +18,12 @@ public class LapTracker : MonoBehaviour
 
     public bool LapStarted { get; private set; }
 
-    // During training, the car must first reach the start/finish line
     public bool WaitingForTrainingStart { get; private set; }
 
     public bool verboseLogging;
 
     private float lapStartTime;
 
-    // Prevent duplicate finish-line hits from multiple colliders
     private float lastFinishCrossingTime = -Mathf.Infinity;
     private const float finishCooldown = 0.5f;
 
@@ -34,7 +32,7 @@ public class LapTracker : MonoBehaviour
 
     public void SetTotalCheckpoints(int amount)
     {
-        totalCheckpoints = amount;
+        totalCheckpoints = Mathf.Max(0, amount);
         NextCheckpoint = 0;
     }
 
@@ -44,46 +42,72 @@ public class LapTracker : MonoBehaviour
         if (waitingForEpisodeReset)
             return;
 
-        // During training, checkpoints before the start line do not count
-        if (WaitingForTrainingStart && verboseLogging)
+        if (WaitingForTrainingStart)
         {
-            Debug.Log(
-                $"Checkpoint {checkpointIndex} ignored: " +
-                $"start/finish has not been crossed yet."
-            );
+            if (verboseLogging)
+            {
+                Debug.Log(
+                    $"Checkpoint {checkpointIndex} ignored: " +
+                    "Start/Finish has not been crossed yet."
+                );
+            }
 
             return;
         }
 
-        if (!LapStarted && verboseLogging)
+        if (!LapStarted)
         {
-            Debug.Log(
-                $"Checkpoint {checkpointIndex} ignored: lap has not started."
-            );
+            if (verboseLogging)
+            {
+                Debug.Log(
+                    $"Checkpoint {checkpointIndex} ignored: " +
+                    "lap has not started."
+                );
+            }
 
             return;
         }
 
-        if (checkpointIndex != NextCheckpoint && verboseLogging)
+        if (checkpointIndex != NextCheckpoint)
         {
-            Debug.Log(
-                $"Checkpoint {checkpointIndex} ignored. " +
-                $"Expected checkpoint {NextCheckpoint}."
-            );
+            if (verboseLogging)
+            {
+                Debug.Log(
+                    $"Checkpoint {checkpointIndex} ignored. " +
+                    $"Expected checkpoint {NextCheckpoint}."
+                );
+            }
+
+            return;
+        }
+
+        if (totalCheckpoints <= 0)
+        {
+            if (verboseLogging)
+            {
+                Debug.Log(
+                    "Checkpoint ignored: totalCheckpoints has not been initialized."
+                );
+            }
 
             return;
         }
 
         if (verboseLogging)
         {
-                Debug.Log($"Checkpoint {checkpointIndex} passed");
+            Debug.Log(
+                $"Checkpoint {checkpointIndex} passed."
+            );
         }
 
         NextCheckpoint++;
 
         CheckpointPassed?.Invoke(checkpointIndex);
 
-        if (NextCheckpoint >= totalCheckpoints && verboseLogging)
+        if (
+            NextCheckpoint >= totalCheckpoints &&
+            verboseLogging
+        )
         {
             Debug.Log(
                 "All checkpoints passed. Finish line is now valid."
@@ -97,68 +121,89 @@ public class LapTracker : MonoBehaviour
         if (waitingForEpisodeReset)
             return;
 
-        // Prevent duplicate trigger hits.
-        if (Time.time - lastFinishCrossingTime < finishCooldown)
+        if (
+            Time.time - lastFinishCrossingTime <
+            finishCooldown
+        )
+        {
             return;
+        }
 
         lastFinishCrossingTime = Time.time;
 
-
-        // First crossing of a training episode - starts the times lap
         if (WaitingForTrainingStart)
         {
             WaitingForTrainingStart = false;
 
             BeginNewLap();
 
-            // Notify CarAgent after we know it is a ligit training-start crossing
-
             StartFinishCrossed?.Invoke();
+
             if (verboseLogging)
             {
-                Debug.Log("Training start line crossed. Timed lap begins.");
+                Debug.Log(
+                    "Training Start/Finish crossed. Timed lap begins."
+                );
             }
-            
 
             return;
         }
 
-        // No state where WaitingForTrainingStart is false but no lap is running
+
         if (!LapStarted)
+            return;
+
+        if (totalCheckpoints <= 0)
         {
+            if (verboseLogging)
+            {
+                Debug.Log(
+                    "Finish ignored: totalCheckpoints has not been initialized."
+                );
+            }
+
             return;
         }
 
-
-        // Crossing the finish early does not count
         if (NextCheckpoint < totalCheckpoints)
         {
-            Debug.Log(
-                $"Finish ignored. Passed " +
-                $"{NextCheckpoint}/{totalCheckpoints} checkpoints."
-            );
+            if (verboseLogging)
+            {
+                Debug.Log(
+                    $"Finish ignored. Passed " +
+                    $"{NextCheckpoint}/{totalCheckpoints} checkpoints."
+                );
+            }
 
             return;
         }
 
-
-        // If all checkpoints passed, the finish is valid
         CompleteLap();
     }
 
 
     private void BeginNewLap()
     {
-        LapStarted = true;
-
         NextCheckpoint = 0;
 
         lapStartTime = Time.time;
+
+        LapStarted = true;
     }
 
 
     private void CompleteLap()
     {
+        if (!LapStarted)
+            return;
+
+        if (totalCheckpoints <= 0)
+            return;
+
+        if (NextCheckpoint < totalCheckpoints)
+            return;
+
+
         float lapTime =
             Time.time - lapStartTime;
 
@@ -168,8 +213,8 @@ public class LapTracker : MonoBehaviour
 
         LapStarted = false;
 
-        // Prevent any more checkpoint / finish events until ML-Agents starts the next episode
         waitingForEpisodeReset = true;
+
 
         if (
             FastestLapTime <= 0f ||
@@ -180,13 +225,13 @@ public class LapTracker : MonoBehaviour
 
             if (verboseLogging)
             {
-                Debug.Log($"NEW FASTEST LAP: {FastestLapTime:F3}s");
+                Debug.Log(
+                    $"NEW FASTEST LAP: " +
+                    $"{FastestLapTime:F3}s"
+                );
             }
-            
         }
 
-
-        // CarAgent receives, gives lap reward and calls EndEpisode()
         LapCompleted?.Invoke(lapTime);
     }
 
@@ -211,6 +256,5 @@ public class LapTracker : MonoBehaviour
         WaitingForTrainingStart = true;
 
         waitingForEpisodeReset = false;
-
     }
 }
