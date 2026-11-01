@@ -40,7 +40,7 @@ environment_parameters:
   sideways_grip: 5
 
   # Wall rays
-  wall_ray_count: 15
+  wall_ray_count: 51
   wall_ray_fov: 180
   wall_ray_side_distance: 12
   wall_ray_center_distance: 70
