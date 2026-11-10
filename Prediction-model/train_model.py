@@ -15,8 +15,18 @@ OUTPUT_PATH = Path(__file__).parent / "forest_predictions.csv"
 # fill in these with the appropriate attributes
 # also if target is a number on a continous scale, then it is a regression problem 
 # terefore we use Regressor instead of classifier
-TARGET = ""
-features = []
+TARGET = "fastest_lap_seconds"
+# the environment hyperparameters that vary between runs in runs.csv
+# (ids, seed, constant columns and measured outcomes like completed_laps are left out)
+features = [
+    "allowed_slip_angle", "allowed_yaw_rate", "checkpoint_count", "checkpoint_reward_per_lap",
+    "excessive_yaw_penalty_per_second", "forward_progress_reward_per_second",
+    "lap_time_reward_at_target", "lap_time_reward_scale", "max_wall_contact_seconds",
+    "maximum_slip_angle", "slip_penalty_per_second", "target_progress_reward_scale",
+    "time_penalty_per_second", "wall_impact_penalty", "wall_penalty_per_second",
+    "wall_ray_angle_power", "wall_ray_center_distance", "wall_ray_center_power",
+    "wall_ray_count", "wall_ray_side_distance",
+]
 
 
 def K_Fold_CV(X, y, max_depth, k=10, seed=42):
@@ -53,6 +63,8 @@ def print_scores(name, scores):
     print(name, "train mean absolute error:", train_mean)
 
 data = pd.read_csv(DATA_PATH)
+# only finished runs that actually drove a lap have a lap time to learn from
+data = data[data["status"] == "completed"].dropna(subset=[TARGET])
 
 train_data, test_data = train_test_split(data, test_size=0.2, random_state = 42)
 
@@ -61,7 +73,7 @@ y_train = train_data[TARGET].to_numpy()
 X_test = test_data[features].to_numpy()
 y_test = test_data[TARGET].to_numpy()
 
-print_scores("Tree", K_Fold_CV(X_train, y_train, max_depth=11, k=10))
+print_scores("Tree", K_Fold_CV(X_train, y_train, max_depth=5, k=10))
 print_scores("Forest", K_Fold_CV_forest(X_train, y_train, n_trees=50))
 
 final_forest = build_forest(X_train, y_train, n_trees=50)
