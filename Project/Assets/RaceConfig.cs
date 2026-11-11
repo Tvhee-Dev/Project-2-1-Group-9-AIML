@@ -27,9 +27,9 @@ public class RaceConfig : MonoBehaviour
     public float defaultWallRaySideDistance = 12f;
     public float defaultWallRayCenterDistance = 70f;
     public float defaultWallRayCenterPower = 1.5f;
-    [Range(1f, 3f)] public float defaultWallRayAnglePower = 1.5f;
+    [Range(0.5f, 3f)] public float defaultWallRayAnglePower = 1.5f;
     public float defaultWallRayForwardOffset = 1.2f;
-    public float defaultWallRayHeight = 0.3f;
+    public float defaultWallRayHeight = 0f;
 
     [Header("Default Wall Reward Settings")]
     public float defaultWallPenaltyPerSecond = 0.05f;
@@ -84,8 +84,9 @@ public class RaceConfig : MonoBehaviour
             return;
         }
 
-        if (carAgents == null || carAgents.Length == 0)
-            carAgents = GetComponentsInChildren<CarAgent>(true);
+        // Always discover every child agent. This prevents an incomplete
+        // Inspector list from silently configuring only a subset of cars.
+        carAgents = GetComponentsInChildren<CarAgent>(true);
 
         if (carAgents == null || carAgents.Length == 0)
         {
@@ -217,7 +218,7 @@ public class RaceConfig : MonoBehaviour
         ) >= 0.5f;
 
         // Validation
-        checkpointCount = Mathf.Clamp(checkpointCount, 1, 100);
+        checkpointCount = Mathf.Clamp(checkpointCount, 1, 101);
 
         maxSpeed = Mathf.Max(1f, maxSpeed);
         acceleration = Mathf.Max(0.1f, acceleration);
@@ -232,7 +233,7 @@ public class RaceConfig : MonoBehaviour
         wallRaySideDistance = Mathf.Max(0.1f, wallRaySideDistance);
         wallRayCenterDistance = Mathf.Max(wallRaySideDistance, wallRayCenterDistance);
         wallRayCenterPower = Mathf.Max(0.01f, wallRayCenterPower);
-        wallRayAnglePower = Mathf.Clamp(wallRayAnglePower, 1f, 3f);
+        wallRayAnglePower = Mathf.Clamp(wallRayAnglePower, 0.5f, 3f);
         wallRayForwardOffset = Mathf.Max(0f, wallRayForwardOffset);
 
         wallPenaltyPerSecond = Mathf.Max(0f, wallPenaltyPerSecond);
@@ -356,6 +357,10 @@ public class RaceConfig : MonoBehaviour
 
             // Each car has independent lap progress.
             lapTracker.SetTotalCheckpoints(checkpointCount);
+
+            // Build constant ray geometry after the YAML values are assigned.
+            carAgent.RebuildWallRayCache();
+            carAgent.RefreshTargetCache();
 
             configuredCars++;
         }
