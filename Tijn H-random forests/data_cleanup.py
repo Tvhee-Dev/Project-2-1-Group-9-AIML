@@ -12,7 +12,6 @@ df = df.drop(columns=[  'campaign_id',
                         'job_id',
                         'seed',
                         'num_envs',
-                        'threshold_reached_at_seconds',
                         'threshold_reached_at_step',
                         'training_duration_seconds',
                         'average_cpu_percent',
@@ -56,6 +55,8 @@ for val in df['ordinal'].unique():
     cleanedData.loc[len(cleanedData)] = subFrame.loc[locBestTime]
     
 cleanedData = cleanedData.drop(columns = ["status", "ordinal"], errors = "ignore")
+threshold_reached_at_seconds = cleanedData.pop("threshold_reached_at_seconds")
+cleanedData.insert(len(cleanedData.columns), "threshold_reached_at_seconds", threshold_reached_at_seconds)
 
 # Change values in human_lap_target_seconds to be humanLap
 cleanedData['human_lap_target_seconds'] = humanLap
