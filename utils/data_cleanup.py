@@ -1,7 +1,7 @@
 import pandas as panda
 
 # Load data
-df = panda.read_csv('twine-mutation-dataset (3).csv')
+df = panda.read_csv('twine-mutation-dataset.csv')
 
 # Constants
 humanLap = 47.6
@@ -62,4 +62,4 @@ cleanedData.insert(len(cleanedData.columns), "threshold_reached_at_seconds", thr
 cleanedData['human_lap_target_seconds'] = humanLap
 
 # Finally, export dataframe as new CSV
-cleanedData.to_csv('cleaned_data.csv', index=False)
+cleanedData.to_csv('twine-mutation-dataset-clean.csv', index=False)
