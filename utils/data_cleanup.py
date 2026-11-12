@@ -31,11 +31,11 @@ df = df.drop(columns=[  'campaign_id',
                         'num_layers',
                         'network_architecture',
                         'created_at',
-                        'finished_at' ])
+                        'finished_at',
+                        'completed_laps'], errors = "ignore")
 
 # Drop unfinished rows
 df = df[df['status'] == "completed"]
-
 
 """
     Pick training instances with best lap time for final dataset
@@ -52,6 +52,12 @@ for val in df['ordinal'].unique():
     locBestTime = subFrame['fastest_lap_seconds'].idxmin()
     cleanedData.loc[len(cleanedData)] = subFrame.loc[locBestTime]
 
+# Drop more columns
+cleanedData = cleanedData.drop(columns = ["status", "ordinal"], errors = "ignore")
+
+# Reorder threshold_reached_at_seconds column
+threshold_reached_at_seconds = cleanedData.pop("threshold_reached_at_seconds")
+cleanedData.insert(len(cleanedData.columns), "threshold_reached_at_seconds", threshold_reached_at_seconds)
 
 # Change values in human_lap_target_seconds to be humanLap
 cleanedData['human_lap_target_seconds'] = humanLap
