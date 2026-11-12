@@ -1,7 +1,7 @@
 import pandas as panda
 
 # Load data
-df = panda.read_csv('twine-mutation-dataset (3).csv')
+df = panda.read_csv('twine_mutation_dataset.csv')
 
 # Constants
 humanLap = 47.6
@@ -31,8 +31,7 @@ df = df.drop(columns=[  'campaign_id',
                         'num_layers',
                         'network_architecture',
                         'created_at',
-                        'finished_at',
-                        'completed_laps' ], errors = "ignore")
+                        'finished_at' ])
 
 # Drop unfinished rows
 df = df[df['status'] == "completed"]
@@ -47,19 +46,15 @@ df = df[df['status'] == "completed"]
         - choose the row with the highest value in 'fastest_lap_seconds'
         - add selected row to final dataset
 """
-cleanedData = panda.DataFrame(columns = list(df))
-
+cleanedData = panda.DataFrame(columns=list(df))
 for val in df['ordinal'].unique():
     subFrame = df[df['ordinal'] == val]
     locBestTime = subFrame['fastest_lap_seconds'].idxmin()
     cleanedData.loc[len(cleanedData)] = subFrame.loc[locBestTime]
-    
-cleanedData = cleanedData.drop(columns = ["status", "ordinal"], errors = "ignore")
-threshold_reached_at_seconds = cleanedData.pop("threshold_reached_at_seconds")
-cleanedData.insert(len(cleanedData.columns), "threshold_reached_at_seconds", threshold_reached_at_seconds)
+
 
 # Change values in human_lap_target_seconds to be humanLap
 cleanedData['human_lap_target_seconds'] = humanLap
 
 # Finally, export dataframe as new CSV
-cleanedData.to_csv('cleaned_data.csv', index=False)
+cleanedData.to_csv('twine_mutation_dataset_clean.csv', index=False)
