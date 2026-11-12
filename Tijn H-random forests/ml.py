@@ -5,12 +5,13 @@ from sklearn.model_selection import train_test_split
 from typing import Tuple
 
 data = pd.read_csv("cleaned_data.csv")
-    
-Y = data.iloc[:, -1]
-X = data.iloc[:, : -1]
+targets = ["fastest_lap_seconds", "threshold_reached_at_seconds"]
 
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, random_state = 67, shuffle = True)
-X_train, X_validation, Y_train, Y_validation = train_test_split(X_train, Y_train, test_size = 0.25, random_state = 67, shuffle = True)
+Y = data[targets]
+X = data.drop(columns = targets)
+
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, shuffle = True)
+X_train, X_validation, Y_train, Y_validation = train_test_split(X_train, Y_train, test_size = 0.25, shuffle = True)
 
 print("The data is now split into\n             X.shape  Y.shape")
 print("Train:      ", X_train.shape, Y_train.shape)
@@ -23,8 +24,8 @@ forest.fit(X = X_train, y = Y_train)
 Y_hat_train = forest.predict(X_train)
 Y_hat_held_out = forest.predict(X_validation)
 
-train_accuracy = r2_score(y_true = Y_train, y_pred = Y_hat_train)
-held_out_accuracy = r2_score(y_true = Y_validation, y_pred = Y_hat_held_out)
+train_accuracy = r2_score(y_true = Y_train, y_pred = Y_hat_train, multioutput = "raw_values")
+held_out_accuracy = r2_score(y_true = Y_validation, y_pred = Y_hat_held_out, multioutput = "raw_values")
 
 print("The accuracies are:")
 print("Train:      ", train_accuracy)
@@ -53,6 +54,7 @@ sample = [
             5,      # wall_ray_side_distance
             47.6]   # human_lap_target_seconds
             #46.58  # fastest_lap_seconds
+            #.....  # threshold_reached_at_seconds
         ]
 
 columns = [
