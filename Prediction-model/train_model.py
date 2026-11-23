@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 
-DATA_PATH = Path(__file__).parent / "data" / "runs.csv"
+DATA_PATH = Path(__file__).parent / "data" / "dummy_runs.csv"
 OUTPUT_PATH = Path(__file__).parent / "forest_predictions.csv"
 
 cvSeed = 45
@@ -84,8 +84,10 @@ groups_train = train_data[GROUP].to_numpy()
 X_test = test_data[features].to_numpy()
 y_test = test_data[TARGET].to_numpy()
 
-print_scores("Tree", K_Fold_CV(X_train, y_train, groups_train, max_depth=5, k=10))
-print_scores("Forest", K_Fold_CV_forest(X_train, y_train, groups_train, n_trees=50))
+k = min(10, len(np.unique(groups_train)))
+
+print_scores("Tree", K_Fold_CV(X_train, y_train, groups_train, max_depth=5, k=k))
+print_scores("Forest", K_Fold_CV_forest(X_train, y_train, groups_train, n_trees=50, k=k))
 
 final_forest = build_forest(X_train, y_train, n_trees=300)
 test_predictions = final_forest.predict(X_test)
