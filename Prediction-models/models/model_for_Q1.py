@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 
 
-DATA_PATH = Path(__file__).parent / "data" / "dummy_runs.csv"
+
+DATA_PATH =  Path(__file__).resolve().parent.parent / "data" / "clean" / "twine-mutation-dataset-clean.csv"
 OUTPUT_PATH = Path(__file__).parent / "forest_predictions.csv"
 
 cvSeed = 45
@@ -69,8 +70,12 @@ def print_scores(name, scores):
     print(name, "train mean absolute error:", train_mean)
 
 data = pd.read_csv(DATA_PATH)
-# only finished runs that actually drove a lap have a lap time to learn from
-data = data[data["status"] == "completed"].dropna(subset=[TARGET])
+# the clean dataset already keeps only completed runs (status column is dropped there),
+# dropna is kept as a safety net for missing lap times
+data = data.dropna(subset=[TARGET]).reset_index(drop=True)
+# the clean dataset has one row per config (best seed only, ordinal column dropped),
+# so every row is its own group
+data[GROUP] = np.arange(len(data))
 # filtering happens here, we compare the lap time from data to our pre-set time
 data = data[data[TARGET] < MAX_LAP_SECONDS]
 
