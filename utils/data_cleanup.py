@@ -36,6 +36,8 @@ df = df.drop(columns=[  'campaign_id',
 
 # Drop unfinished rows
 df = df[df['status'] == "completed"]
+df = df.dropna(subset=['fastest_lap_seconds'])
+
 
 """
     Pick training instances with best lap time for final dataset
